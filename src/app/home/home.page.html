@@ -1,20 +1,28 @@
-<ion-header [translucent]="true">
+<ion-header>
   <ion-toolbar>
-    <ion-title>
-      Blank
-    </ion-title>
+    <ion-title>TFJS Camera App</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Blank</ion-title>
-    </ion-toolbar>
-  </ion-header>
+<ion-content>
+  <ion-button (click)="takePicture()">Capturar Imagen</ion-button>
+  <ion-button (click)="startWebcam()">Iniciar Video</ion-button>
+  <ion-button (click)="stopWebcam()">Detener Video</ion-button>
 
-  <div id="container">
-    <strong>Ready to create an app?</strong>
-    <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
+  <!-- Vista previa de la imagen capturada -->
+  <img *ngIf="imageDataUrl" [src]="imageDataUrl" alt="Captured Image" />
+
+  <!-- Vista previa del video en tiempo real -->
+  <video id="video" autoplay style="display: none;"></video>
+  <canvas id="canvas" width="224" height="224"></canvas>
+
+  <!-- Resultados de la inferencia -->
+  <div *ngIf="predictions">
+    <h3>Resultados:</h3>
+    <ion-list>
+      <ion-item *ngFor="let prediction of predictions">
+        {{ prediction.className }}: {{ (prediction.probability * 100).toFixed(2) }}%
+      </ion-item>
+    </ion-list>
   </div>
 </ion-content>
