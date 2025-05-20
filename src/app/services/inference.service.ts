@@ -6,12 +6,17 @@ import * as mobilenet from '@tensorflow-models/mobilenet';
   providedIn: 'root'
 })
 export class InferenceService {
-  private model: mobilenet.MobileNet | null = null;
+  private model: mobilenet.MobileNet | tf.LayersModel | null = null;
 
-  async loadModel() {
+  async loadModel(useMobileNet: boolean = true) {
     try {
-      this.model = await mobilenet.load();
-      console.log('Modelo MobileNet cargado correctamente');
+      if (useMobileNet) {
+        this.model = await mobilenet.load();
+        console.log('Modelo MobileNet cargado correctamente');
+      } else {
+        this.model = await tf.loadLayersModel('assets/model/model.json');
+        console.log('Modelo personalizado cargado correctamente');
+      }
     } catch (error) {
       console.error('Error al cargar el modelo:', error);
       throw error;
@@ -27,7 +32,7 @@ export class InferenceService {
         const tensor = tf.browser.fromPixels(img)
           .resizeNearestNeighbor([224, 224])
           .toFloat()
-          .div(tf.scalar(255)) as tf.Tensor3D; // Tipo Tensor3D, sin expandDims
+          .div(tf.scalar(255)) as tf.Tensor3D;
         console.log('Tensor shape:', tensor.shape); // Debería ser [224, 224, 3]
         return tensor;
       });
@@ -40,9 +45,20 @@ export class InferenceService {
   async predict(tensor: tf.Tensor3D): Promise<any[]> {
     try {
       if (!this.model) throw new Error('Modelo no cargado');
-      const predictions = await this.model.classify(tensor);
-      console.log('Predicciones:', predictions);
-      return predictions;
+
+      if ('classify' in this.model) {
+        // MobileNet: Usa classify para obtener clases y probabilidades
+        const predictions = await (this.model as mobilenet.MobileNet).classify(tensor);
+        console.log('Predicciones MobileNet:', predictions);
+        return predictions;
+      } else {
+        // Modelo personalizado: Usa predict para obtener logits
+        const logits = (this.model as tf.LayersModel).predict(tensor.expandDims()) as tf.Tensor;
+        const predictions = await logits.data();
+        console.log('Predicciones modelo personalizado:', predictions);
+        // Opcional: Mapear logits a clases si tienes un archivo de etiquetas
+        return Array.from(predictions);
+      }
     } catch (error) {
       console.error('Error al realizar la predicción:', error);
       throw error;
@@ -56,7 +72,7 @@ export class InferenceService {
         return img
           .resizeNearestNeighbor([224, 224])
           .toFloat()
-          .div(tf.scalar(255)) as tf.Tensor3D; // Tipo Tensor3D, sin expandDims
+          .div(tf.scalar(255)) as tf.Tensor3D;
       });
       img.dispose();
       return await this.predict(tensor);
