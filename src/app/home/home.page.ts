@@ -11,11 +11,12 @@ import { IonicModule } from '@ionic/angular';
   styleUrls: ['home.page.scss'],
   standalone: true,
   imports: [CommonModule, IonicModule]
-
 })
 export class HomePage implements OnInit, OnDestroy {
   imageDataUrl: string | null = null;
-  predictions: { className: string; probability: number }[] | null = null;
+  predictions: any[] | null = null;
+  useMobileNet: boolean = true;
+  isWebcamActive: boolean = false;
   private webcamInterval: any;
 
   constructor(
@@ -25,9 +26,18 @@ export class HomePage implements OnInit, OnDestroy {
 
   async ngOnInit() {
     try {
-      await this.inferenceService.loadModel();
+      await this.inferenceService.loadModel(this.useMobileNet);
     } catch (error) {
       console.error('Error al inicializar el modelo:', error);
+    }
+  }
+
+  async toggleModel() {
+    this.useMobileNet = !this.useMobileNet;
+    try {
+      await this.inferenceService.loadModel(this.useMobileNet);
+    } catch (error) {
+      console.error('Error al cambiar el modelo:', error);
     }
   }
 
@@ -37,6 +47,7 @@ export class HomePage implements OnInit, OnDestroy {
       const tensor = await this.inferenceService.preprocessImage(this.imageDataUrl);
       this.predictions = await this.inferenceService.predict(tensor);
       tensor.dispose();
+      this.isWebcamActive = false; // Hide video when capturing image
     } catch (error) {
       console.error('Error al capturar o procesar la imagen:', error);
     }
@@ -49,7 +60,7 @@ export class HomePage implements OnInit, OnDestroy {
       const ctx = canvas.getContext('2d');
 
       const webcam = await this.cameraService.setupWebcam(videoElement);
-      videoElement.style.display = 'block';
+      this.isWebcamActive = true;
 
       this.webcamInterval = setInterval(async () => {
         tf.engine().startScope();
@@ -70,8 +81,7 @@ export class HomePage implements OnInit, OnDestroy {
     try {
       clearInterval(this.webcamInterval);
       await this.cameraService.stopWebcam();
-      const videoElement = document.getElementById('video') as HTMLVideoElement;
-      videoElement.style.display = 'none';
+      this.isWebcamActive = false;
     } catch (error) {
       console.error('Error al detener la webcam:', error);
     }
