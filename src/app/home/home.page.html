@@ -6,14 +6,22 @@
     <img *ngIf="imageDataUrl && !isWebcamActive" [src]="imageDataUrl" alt="Captured Image" />
   </div>
 
-  <!-- Overlay Controls -->
+  <!-- AI Result Overlay -->
+  <div class="prediction-overlay" *ngIf="predictions?.length && !isWebcamActive">
+    <div class="prediction-box" *ngFor="let pred of predictions">
+      <ion-icon name="person-circle-outline"></ion-icon>
+      {{ pred.class }} ({{ (pred.score * 100) | number:'1.0-1' }}%)
+    </div>
+  </div>
+
+  <!-- Button Controls -->
   <div class="button-overlay">
-    <!-- Take Picture Button -->
+    <!-- Take Picture (with folder icon) -->
     <ion-button shape="round" size="large" fill="solid" color="light" (click)="takePicture()">
       <ion-icon name="folder-outline"></ion-icon>
     </ion-button>
 
-    <!-- Webcam Toggle Button -->
+    <!-- Webcam Toggle -->
     <ion-button shape="round" size="large" [color]="isWebcamActive ? 'danger' : 'primary'" (click)="toggleWebcam()">
       <ion-icon [name]="isWebcamActive ? 'stop-circle-outline' : 'videocam-outline'"></ion-icon>
     </ion-button>

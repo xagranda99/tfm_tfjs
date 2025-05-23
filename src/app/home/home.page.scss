@@ -9,8 +9,30 @@
       height: 100%;
       object-fit: cover;
       position: absolute;
-      top: 0;
-      left: 0;
+    }
+  }
+
+  .prediction-overlay {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .prediction-box {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      ion-icon {
+        font-size: 18px;
+      }
     }
   }
 
@@ -21,7 +43,6 @@
     transform: translateX(-50%);
     display: flex;
     gap: 24px;
-    align-items: center;
     z-index: 10;
   }
 
@@ -33,4 +54,17 @@
       font-size: 32px;
     }
   }
+}
+
+.prediction-box {
+  max-width: 90vw; // evita que se desborde del ancho de la pantalla
+  word-break: break-word;
+  white-space: normal; // permite que el texto salte de línea
+}
+
+.prediction-overlay {
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: center;
 }

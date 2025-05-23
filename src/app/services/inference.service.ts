@@ -59,35 +59,56 @@ export class InferenceService {
   private drawPredictions(predictions: cocoSsd.DetectedObject[], video: HTMLVideoElement, canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    // Match canvas size to video
+  
+    const margin = 5; // margen en píxeles para que la caja sea más pequeña
+  
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-
-    // Clear previous drawings
+  
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw bounding boxes and labels
+  
     predictions.forEach(prediction => {
-      const [x, y, width, height] = prediction.bbox;
+      let [x, y, width, height] = prediction.bbox;
+  
+      // Ajustar para no salir del canvas, con margen
+      if (x < margin) {
+        width -= (margin - x);
+        x = margin;
+      }
+      if (y < margin) {
+        height -= (margin - y);
+        y = margin;
+      }
+      if (x + width > canvas.width - margin) {
+        width = canvas.width - margin - x;
+      }
+      if (y + height > canvas.height - margin) {
+        height = canvas.height - margin - y;
+      }
+  
+      // Reducir aún más tamaño para que no toque bordes
+      width = width * 0.9;  // 90% del ancho
+      height = height * 0.9; // 90% del alto
+  
+      if (width <= 0 || height <= 0) return;
+  
       const label = `${prediction.class} (${(prediction.score * 100).toFixed(2)}%)`;
-
-      // Draw bounding box
+  
       ctx.strokeStyle = '#00ff88';
       ctx.lineWidth = 2;
       ctx.strokeRect(x, y, width, height);
-
-      // Draw label background
+  
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
       const textWidth = ctx.measureText(label).width;
       ctx.fillRect(x, y - 20, textWidth + 10, 20);
-
-      // Draw label text
+  
       ctx.font = '14px Arial';
       ctx.fillStyle = '#00ff88';
       ctx.fillText(label, x + 5, y - 5);
     });
   }
+  
+  
 
   dispose() {
     tf.engine().startScope();
