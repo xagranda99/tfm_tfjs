@@ -1,7 +1,7 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CameraService } from '../services/camera.service';
 import { InferenceService } from '../services/inference.service';
-import * as tf from '@tensorflow/tfjs';
+import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 
@@ -13,11 +13,12 @@ import { IonicModule } from '@ionic/angular';
   imports: [CommonModule, IonicModule]
 })
 export class HomePage implements OnInit, OnDestroy {
+  @ViewChild('video', { static: false }) videoElement!: ElementRef<HTMLVideoElement>;
+  @ViewChild('canvas', { static: false }) canvasElement!: ElementRef<HTMLCanvasElement>;
   imageDataUrl: string | null = null;
-  predictions: any[] | null = null;
-  useMobileNet: boolean = true;
+  predictions: cocoSsd.DetectedObject[] | null = null;
   isWebcamActive: boolean = false;
-  private webcamInterval: any;
+  private animationFrameId: number | null = null;
 
   constructor(
     private cameraService: CameraService,
@@ -26,27 +27,17 @@ export class HomePage implements OnInit, OnDestroy {
 
   async ngOnInit() {
     try {
-      await this.inferenceService.loadModel(this.useMobileNet);
+      await this.inferenceService.loadModel();
     } catch (error) {
       console.error('Error al inicializar el modelo:', error);
-    }
-  }
-
-  async toggleModel() {
-    this.useMobileNet = !this.useMobileNet;
-    try {
-      await this.inferenceService.loadModel(this.useMobileNet);
-    } catch (error) {
-      console.error('Error al cambiar el modelo:', error);
     }
   }
 
   async takePicture() {
     try {
       this.imageDataUrl = await this.cameraService.takePicture();
-      const tensor = await this.inferenceService.preprocessImage(this.imageDataUrl);
-      this.predictions = await this.inferenceService.predict(tensor);
-      tensor.dispose();
+      const img = await this.inferenceService.preprocessImage(this.imageDataUrl);
+      this.predictions = await this.inferenceService.predict(img);
       this.isWebcamActive = false; // Hide video when capturing image
     } catch (error) {
       console.error('Error al capturar o procesar la imagen:', error);
@@ -55,23 +46,10 @@ export class HomePage implements OnInit, OnDestroy {
 
   async startWebcam() {
     try {
-      const videoElement = document.getElementById('video') as HTMLVideoElement;
-      const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-      const ctx = canvas.getContext('2d');
-
-      const webcam = await this.cameraService.setupWebcam(videoElement);
+      const videoElement = this.videoElement.nativeElement;
+      await this.cameraService.setupWebcam(videoElement);
       this.isWebcamActive = true;
-
-      this.webcamInterval = setInterval(async () => {
-        tf.engine().startScope();
-        const predictions = await this.inferenceService.predictWebcamFrame(webcam);
-        this.predictions = predictions;
-
-        const img = await webcam.capture();
-        ctx?.drawImage(img.toHTMLImageElement(), 0, 0, 224, 224);
-        img.dispose();
-        tf.engine().endScope();
-      }, 100);
+      this.processWebcam();
     } catch (error) {
       console.error('Error al iniciar la webcam:', error);
     }
@@ -79,13 +57,42 @@ export class HomePage implements OnInit, OnDestroy {
 
   async stopWebcam() {
     try {
-      clearInterval(this.webcamInterval);
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
       await this.cameraService.stopWebcam();
       this.isWebcamActive = false;
+      this.predictions = null;
+      const canvas = this.canvasElement.nativeElement;
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     } catch (error) {
       console.error('Error al detener la webcam:', error);
     }
   }
+
+  private async processWebcam() {
+    if (!this.isWebcamActive) return;
+    try {
+      const video = this.videoElement.nativeElement;
+      const canvas = this.canvasElement.nativeElement;
+      this.predictions = await this.inferenceService.predictWebcamFrame(video, canvas);
+      this.animationFrameId = requestAnimationFrame(() => this.processWebcam());
+    } catch (error) {
+      console.error('Error al procesar el frame de la webcam:', error);
+      this.stopWebcam();
+    }
+  }
+
+  async toggleWebcam() {
+    if (this.isWebcamActive) {
+      await this.stopWebcam();
+    } else {
+      await this.startWebcam();
+    }
+  }
+  
 
   ngOnDestroy() {
     this.stopWebcam();

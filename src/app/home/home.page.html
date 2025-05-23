@@ -1,55 +1,21 @@
-<ion-header>
-  <ion-toolbar class="header-toolbar">
-    <ion-title class="header-title">AI Vision Pro</ion-title>
-  </ion-toolbar>
-</ion-header>
+<ion-content fullscreen class="camera-content">
+  <!-- Media View -->
+  <div class="media-container">
+    <video #video autoplay playsinline [style.display]="isWebcamActive ? 'block' : 'none'"></video>
+    <canvas #canvas></canvas>
+    <img *ngIf="imageDataUrl && !isWebcamActive" [src]="imageDataUrl" alt="Captured Image" />
+  </div>
 
-<ion-content class="ion-padding" fullscreen>
-  <div class="main-container">
-    <!-- Control Buttons -->
-    <div class="button-container">
-      <ion-button class="neumorphic-button" (click)="toggleModel()">
-        {{ useMobileNet ? 'Switch to Custom Model' : 'Switch to MobileNet' }}
-      </ion-button>
-      <ion-button class="neumorphic-button" (click)="takePicture()">
-        <ion-icon name="camera-outline" slot="start"></ion-icon>
-        Capture Image
-      </ion-button>
-      <ion-button class="neumorphic-button" (click)="startWebcam()">
-        <ion-icon name="videocam-outline" slot="start"></ion-icon>
-        Start Video
-      </ion-button>
-      <ion-button class="neumorphic-button" (click)="stopWebcam()">
-        <ion-icon name="stop-circle-outline" slot="start"></ion-icon>
-        Stop Video
-      </ion-button>
-    </div>
+  <!-- Overlay Controls -->
+  <div class="button-overlay">
+    <!-- Take Picture Button -->
+    <ion-button shape="round" size="large" fill="solid" color="light" (click)="takePicture()">
+      <ion-icon name="folder-outline"></ion-icon>
+    </ion-button>
 
-    <!-- Preview Section -->
-    <div class="preview-card">
-      <div class="preview-header">Preview</div>
-      <div class="preview-content">
-        <img *ngIf="imageDataUrl" [src]="imageDataUrl" alt="Captured Image" class="preview-image" />
-        <video id="video" autoplay class="preview-video" [style.display]="isWebcamActive ? 'block' : 'none'"></video>
-        <canvas id="canvas" width="224" height="224" class="preview-canvas" [hidden]="true"></canvas>
-      </div>
-    </div>
-
-    <!-- Predictions Section -->
-    <div class="predictions-card" *ngIf="predictions">
-      <div class="predictions-header">AI Predictions</div>
-      <ion-list class="predictions-list">
-        <ion-item *ngFor="let prediction of predictions" class="prediction-item">
-          <ion-label>
-            <span *ngIf="useMobileNet">{{ prediction.className }}</span>
-            <span *ngIf="!useMobileNet">Class {{ prediction.className || prediction.index }}</span>
-            <div class="probability-bar">
-              <div class="probability-fill" [style.width]="(useMobileNet ? prediction.probability * 100 : prediction * 100) + '%'"></div>
-            </div>
-            <span class="probability-text">{{ (useMobileNet ? prediction.probability * 100 : prediction * 100).toFixed(2) }}%</span>
-          </ion-label>
-        </ion-item>
-      </ion-list>
-    </div>
+    <!-- Webcam Toggle Button -->
+    <ion-button shape="round" size="large" [color]="isWebcamActive ? 'danger' : 'primary'" (click)="toggleWebcam()">
+      <ion-icon [name]="isWebcamActive ? 'stop-circle-outline' : 'videocam-outline'"></ion-icon>
+    </ion-button>
   </div>
 </ion-content>

@@ -1,85 +1,92 @@
 import { Injectable } from '@angular/core';
 import * as tf from '@tensorflow/tfjs';
-import * as mobilenet from '@tensorflow-models/mobilenet';
+import * as cocoSsd from '@tensorflow-models/coco-ssd';
 
 @Injectable({
   providedIn: 'root'
 })
 export class InferenceService {
-  private model: mobilenet.MobileNet | tf.LayersModel | null = null;
+  private model: cocoSsd.ObjectDetection | null = null;
 
-  async loadModel(useMobileNet: boolean = true) {
+  async loadModel() {
     try {
-      if (useMobileNet) {
-        this.model = await mobilenet.load();
-        console.log('Modelo MobileNet cargado correctamente');
-      } else {
-        this.model = await tf.loadLayersModel('assets/model/model.json');
-        console.log('Modelo personalizado cargado correctamente');
-      }
+      this.model = await cocoSsd.load();
+      console.log('Modelo COCO-SSD cargado correctamente');
     } catch (error) {
       console.error('Error al cargar el modelo:', error);
       throw error;
     }
   }
 
-  async preprocessImage(imageDataUrl: string): Promise<tf.Tensor3D> {
+  async preprocessImage(imageDataUrl: string): Promise<HTMLImageElement> {
     try {
       const img = new Image();
       img.src = imageDataUrl;
       await img.decode();
-      return tf.tidy(() => {
-        const tensor = tf.browser.fromPixels(img)
-          .resizeNearestNeighbor([224, 224])
-          .toFloat()
-          .div(tf.scalar(255)) as tf.Tensor3D;
-        console.log('Tensor shape:', tensor.shape); // Debería ser [224, 224, 3]
-        return tensor;
-      });
+      return img;
     } catch (error) {
       console.error('Error al preprocesar la imagen:', error);
       throw error;
     }
   }
 
-  async predict(tensor: tf.Tensor3D): Promise<any[]> {
+  async predict(image: HTMLImageElement): Promise<cocoSsd.DetectedObject[]> {
     try {
       if (!this.model) throw new Error('Modelo no cargado');
-
-      if ('classify' in this.model) {
-        // MobileNet: Usa classify para obtener clases y probabilidades
-        const predictions = await (this.model as mobilenet.MobileNet).classify(tensor);
-        console.log('Predicciones MobileNet:', predictions);
-        return predictions;
-      } else {
-        // Modelo personalizado: Usa predict para obtener logits
-        const logits = (this.model as tf.LayersModel).predict(tensor.expandDims()) as tf.Tensor;
-        const predictions = await logits.data();
-        console.log('Predicciones modelo personalizado:', predictions);
-        // Opcional: Mapear logits a clases si tienes un archivo de etiquetas
-        return Array.from(predictions);
-      }
+      const predictions = await this.model.detect(image);
+      console.log('Predicciones COCO-SSD:', predictions);
+      return predictions;
     } catch (error) {
       console.error('Error al realizar la predicción:', error);
       throw error;
     }
   }
 
-  async predictWebcamFrame(webcam: any): Promise<any[]> {
+  async predictWebcamFrame(video: HTMLVideoElement, canvas: HTMLCanvasElement): Promise<cocoSsd.DetectedObject[]> {
     try {
-      const img = await webcam.capture();
-      const tensor = tf.tidy(() => {
-        return img
-          .resizeNearestNeighbor([224, 224])
-          .toFloat()
-          .div(tf.scalar(255)) as tf.Tensor3D;
-      });
-      img.dispose();
-      return await this.predict(tensor);
+      if (!this.model) throw new Error('Modelo no cargado');
+      const predictions = await this.model.detect(video);
+      console.log('Predicciones en frame de webcam:', predictions);
+      // Draw predictions on the canvas
+      this.drawPredictions(predictions, video, canvas);
+      return predictions;
     } catch (error) {
       console.error('Error al procesar el frame de la webcam:', error);
       throw error;
     }
+  }
+
+  private drawPredictions(predictions: cocoSsd.DetectedObject[], video: HTMLVideoElement, canvas: HTMLCanvasElement) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Match canvas size to video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Clear previous drawings
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw bounding boxes and labels
+    predictions.forEach(prediction => {
+      const [x, y, width, height] = prediction.bbox;
+      const label = `${prediction.class} (${(prediction.score * 100).toFixed(2)}%)`;
+
+      // Draw bounding box
+      ctx.strokeStyle = '#00ff88';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, width, height);
+
+      // Draw label background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      const textWidth = ctx.measureText(label).width;
+      ctx.fillRect(x, y - 20, textWidth + 10, 20);
+
+      // Draw label text
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#00ff88';
+      ctx.fillText(label, x + 5, y - 5);
+    });
   }
 
   dispose() {
