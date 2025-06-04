@@ -37,9 +37,8 @@ export class CameraService {
     videoElement.srcObject = stream;
     await videoElement.play();
   
-    // Guardar referencia del stream para detenerlo después
     this.webcamStream = stream;
-  
+
     return stream;
   }
 

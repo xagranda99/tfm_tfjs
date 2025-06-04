@@ -69,8 +69,6 @@ export class InferenceService {
   
     predictions.forEach(prediction => {
       let [x, y, width, height] = prediction.bbox;
-  
-      // Ajustar para no salir del canvas, con margen
       if (x < margin) {
         width -= (margin - x);
         x = margin;
@@ -86,9 +84,8 @@ export class InferenceService {
         height = canvas.height - margin - y;
       }
   
-      // Reducir aún más tamaño para que no toque bordes
-      width = width * 0.9;  // 90% del ancho
-      height = height * 0.9; // 90% del alto
+      width = width * 0.9;
+      height = height * 0.9;
   
       if (width <= 0 || height <= 0) return;
   
