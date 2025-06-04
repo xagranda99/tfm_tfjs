@@ -107,6 +107,58 @@ export class InferenceService {
       ctx.fillText(label, x + 5, y - 5);
     });
   }
+
+  drawPredictionsOnImage(predictions: cocoSsd.DetectedObject[], image: HTMLImageElement, canvas: HTMLCanvasElement) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+  
+    const margin = 5;
+  
+    canvas.width = image.width;
+    canvas.height = image.height;
+  
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, image.width, image.height); // Dibujar imagen en canvas
+  
+    predictions.forEach(prediction => {
+      let [x, y, width, height] = prediction.bbox;
+  
+      if (x < margin) {
+        width -= (margin - x);
+        x = margin;
+      }
+      if (y < margin) {
+        height -= (margin - y);
+        y = margin;
+      }
+      if (x + width > canvas.width - margin) {
+        width = canvas.width - margin - x;
+      }
+      if (y + height > canvas.height - margin) {
+        height = canvas.height - margin - y;
+      }
+  
+      width = width * 0.9;
+      height = height * 0.9;
+  
+      if (width <= 0 || height <= 0) return;
+  
+      const label = `${prediction.class} (${(prediction.score * 100).toFixed(2)}%)`;
+  
+      ctx.strokeStyle = '#00ff88';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, width, height);
+  
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      const textWidth = ctx.measureText(label).width;
+      ctx.fillRect(x, y - 20, textWidth + 10, 20);
+  
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#00ff88';
+      ctx.fillText(label, x + 5, y - 5);
+    });
+  }
+  
   
   
 

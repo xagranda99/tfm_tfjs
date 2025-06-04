@@ -1,29 +1,24 @@
 <ion-content fullscreen class="camera-content">
-  <!-- Media View -->
   <div class="media-container">
     <video #video autoplay playsinline [style.display]="isWebcamActive ? 'block' : 'none'"></video>
     <canvas #canvas></canvas>
-    <img *ngIf="imageDataUrl && !isWebcamActive" [src]="imageDataUrl" alt="Captured Image" />
   </div>
 
-  <!-- AI Result Overlay -->
-  <div class="prediction-overlay" *ngIf="predictions?.length && !isWebcamActive">
-    <div class="prediction-box" *ngFor="let pred of predictions">
-      <ion-icon name="person-circle-outline"></ion-icon>
-      {{ pred.class }} ({{ (pred.score * 100) | number:'1.0-1' }}%)
-    </div>
-  </div>
-
-  <!-- Button Controls -->
   <div class="button-overlay">
-    <!-- Take Picture (with folder icon) -->
-    <ion-button shape="round" size="large" fill="solid" color="light" (click)="takePicture()">
+    <ion-button shape="round" size="large" fill="solid" color="light" (click)="pickImageFromGallery()">
       <ion-icon name="folder-outline"></ion-icon>
     </ion-button>
 
-    <!-- Webcam Toggle -->
     <ion-button shape="round" size="large" [color]="isWebcamActive ? 'danger' : 'primary'" (click)="toggleWebcam()">
       <ion-icon [name]="isWebcamActive ? 'stop-circle-outline' : 'videocam-outline'"></ion-icon>
+    </ion-button>
+
+    <ion-button shape="round" size="large" color="medium" *ngIf="isWebcamActive" (click)="toggleCamera()">
+      <ion-icon name="camera-reverse-outline"></ion-icon>
+    </ion-button>
+
+    <ion-button shape="round" size="large" fill="solid" color="light" *ngIf="isWebcamActive" (click)="captureImage()">
+      <ion-icon name="camera-outline"></ion-icon>
     </ion-button>
   </div>
 </ion-content>

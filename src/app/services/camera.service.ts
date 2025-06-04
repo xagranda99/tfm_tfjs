@@ -7,6 +7,7 @@ import * as tf from '@tensorflow/tfjs';
 })
 export class CameraService {
   webcam: any;
+  webcamStream: MediaStream;
 
   async takePicture(): Promise<string> {
     const image = await Camera.getPhoto({
@@ -17,9 +18,29 @@ export class CameraService {
     return image.dataUrl || "";
   }
 
-  async setupWebcam(videoElement: HTMLVideoElement): Promise<any> {
-    this.webcam = await tf.data.webcam(videoElement);
-    return this.webcam;
+  async setupWebcam(videoElement: HTMLVideoElement, facingMode: 'user' | 'environment' = 'environment'): Promise<MediaStream> {
+    if (this.webcam) {
+      this.webcam.stop();
+      this.webcam = null;
+    }
+  
+    const constraints = {
+      video: {
+        facingMode: facingMode,
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        aspectRatio: 16 / 9
+      }
+    };
+  
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    videoElement.srcObject = stream;
+    await videoElement.play();
+  
+    // Guardar referencia del stream para detenerlo después
+    this.webcamStream = stream;
+  
+    return stream;
   }
 
   async stopWebcam() {
