@@ -5,6 +5,8 @@ import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Media } from '@capacitor-community/media';
 
 @Component({
   selector: 'app-home',
@@ -23,6 +25,9 @@ export class HomePage implements OnInit, OnDestroy {
   private animationFrameId: number | null = null;
   currentFacingMode: 'user' | 'environment' = 'environment';
 
+  isCapturedImage = false;
+  capturedImageDataUrl: string | null = null;
+
   private previousPredictions: cocoSsd.DetectedObject[] = [];
   private readonly SMOOTHING_ALPHA = 0.1;
   private readonly CONFIDENCE_THRESHOLD = 0.5;
@@ -31,7 +36,7 @@ export class HomePage implements OnInit, OnDestroy {
   constructor(
     private cameraService: CameraService,
     private inferenceService: InferenceService
-  ) {}
+  ) { }
 
   async ngOnInit() {
     try {
@@ -39,6 +44,11 @@ export class HomePage implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error al inicializar el modelo:', error);
     }
+  }
+
+  async ngAfterViewInit() {
+    this.resetCaptureState()
+    await this.startWebcam()
   }
 
   async pickImageFromGallery() {
@@ -52,18 +62,40 @@ export class HomePage implements OnInit, OnDestroy {
       this.imageDataUrl = image.dataUrl || null;
 
       if (this.imageDataUrl) {
-        const img = await this.inferenceService.preprocessImage(this.imageDataUrl);
-        this.predictions = await this.inferenceService.predict(img);
+        const img = new Image();
+        img.src = this.imageDataUrl;
+        await new Promise((resolve) => {
+          img.onload = () => resolve(true);
+        });
 
         const canvas = this.canvasElement.nativeElement;
-        this.inferenceService.drawPredictionsOnImage(this.predictions, img, canvas);
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+
+        const predictions = await this.inferenceService.predict(img);
+        this.predictions = predictions;
+
+        this.inferenceService.drawPredictionsOnImage(predictions, img, canvas);
+
+        // Ahora obtenemos la imagen resultante con las predicciones
+        this.capturedImageDataUrl = canvas.toDataURL('image/png');
+        this.isCapturedImage = true;
+        this.isWebcamActive = false;
+
+        // Opcional: limpia la imagen "original"
+        this.imageDataUrl = null;
       }
 
-      this.isWebcamActive = false;
     } catch (error) {
       console.error('Error al seleccionar imagen de galería:', error);
     }
   }
+
 
   async startWebcam() {
     try {
@@ -101,7 +133,7 @@ export class HomePage implements OnInit, OnDestroy {
     try {
       const video = this.videoElement.nativeElement;
       const canvas = this.canvasElement.nativeElement;
-  
+
       const rawPredictions = await this.inferenceService.predictWebcamFrame(video, canvas);
       this.predictions = this.smoothPredictions(rawPredictions);
       this.animationFrameId = requestAnimationFrame(() => this.processWebcam());
@@ -133,68 +165,90 @@ export class HomePage implements OnInit, OnDestroy {
     const ctx = canvas.getContext('2d');
 
     if (!ctx) return;
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const overlayCanvas = this.canvasElement.nativeElement;
     ctx.drawImage(overlayCanvas, 0, 0, canvas.width, canvas.height);
-
-    const combinedImage = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = combinedImage;
-    link.download = `captura_${Date.now()}.png`;
-    link.click();
-
-    this.imageDataUrl = combinedImage;
-    this.isWebcamActive = false;
+    this.capturedImageDataUrl = canvas.toDataURL('image/png');
+    this.isCapturedImage = true;
+    await this.stopWebcam();
   }
 
+  async saveCapturedImage() {
+    if (!this.capturedImageDataUrl) return;
 
-private distanceBetweenBoxes(bbox1: [number, number, number, number], bbox2: [number, number, number, number]): number {
-  const center1 = [bbox1[0] + bbox1[2] / 2, bbox1[1] + bbox1[3] / 2];
-  const center2 = [bbox2[0] + bbox2[2] / 2, bbox2[1] + bbox2[3] / 2];
-  return Math.hypot(center1[0] - center2[0], center1[1] - center2[1]);
-}
-
-private smoothPredictions(newPredictions: cocoSsd.DetectedObject[]): cocoSsd.DetectedObject[] {
-  if (!this.previousPredictions.length) {
-    this.previousPredictions = newPredictions.filter(p => p.score >= this.CONFIDENCE_THRESHOLD);
-    return this.previousPredictions;
-  }
-
-  const smoothedPredictions: cocoSsd.DetectedObject[] = [];
-
-  for (const newPred of newPredictions) {
-    if (newPred.score < this.CONFIDENCE_THRESHOLD) continue;
-
-    // Buscar predicción previa similar (misma clase y bbox cerca)
-    const matchedPrev = this.previousPredictions.find(prev =>
-      prev.class === newPred.class &&
-      this.distanceBetweenBoxes(prev.bbox, newPred.bbox) < this.MAX_BBOX_DISTANCE
-    );
-
-    if (matchedPrev) {
-      // Suavizar bbox
-      const smoothBbox = newPred.bbox.map((coord, i) =>
-        this.SMOOTHING_ALPHA * coord + (1 - this.SMOOTHING_ALPHA) * matchedPrev.bbox[i]
-      ) as [number, number, number, number];
-
-      // Suavizar score
-      const smoothScore = this.SMOOTHING_ALPHA * newPred.score + (1 - this.SMOOTHING_ALPHA) * matchedPrev.score;
-
-      smoothedPredictions.push({
-        ...newPred,
-        bbox: smoothBbox,
-        score: smoothScore
+    try {
+      const base64Data = this.capturedImageDataUrl.replace('data:image/png;base64,', '');
+      const fileName = `captura_${Date.now()}.png`;
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Data,
+        recursive: true,
       });
-    } else {
-      // No hay match previo, usamos la nueva predicción directamente
-      smoothedPredictions.push(newPred);
+
+      await Media.savePhoto({
+        path: savedFile.uri
+      });
+
+      this.resetCaptureState();
+      await this.startWebcam();
+
+    } catch (error) {
+      console.error('Error guardando imagen en galería:', error);
     }
   }
 
-  // Actualizamos el buffer para la siguiente iteración
-  this.previousPredictions = smoothedPredictions;
-  return smoothedPredictions;
-}
+
+  async discardCapturedImage() {
+    this.resetCaptureState();
+    await this.startWebcam();
+  }
+
+  private resetCaptureState() {
+    this.isCapturedImage = false;
+    this.capturedImageDataUrl = null;
+  }
+
+
+  private distanceBetweenBoxes(bbox1: [number, number, number, number], bbox2: [number, number, number, number]): number {
+    const center1 = [bbox1[0] + bbox1[2] / 2, bbox1[1] + bbox1[3] / 2];
+    const center2 = [bbox2[0] + bbox2[2] / 2, bbox2[1] + bbox2[3] / 2];
+    return Math.hypot(center1[0] - center2[0], center1[1] - center2[1]);
+  }
+
+  private smoothPredictions(newPredictions: cocoSsd.DetectedObject[]): cocoSsd.DetectedObject[] {
+    if (!this.previousPredictions.length) {
+      this.previousPredictions = newPredictions.filter(p => p.score >= this.CONFIDENCE_THRESHOLD);
+      return this.previousPredictions;
+    }
+
+    const smoothedPredictions: cocoSsd.DetectedObject[] = [];
+    for (const newPred of newPredictions) {
+      if (newPred.score < this.CONFIDENCE_THRESHOLD) continue;
+      const matchedPrev = this.previousPredictions.find(prev =>
+        prev.class === newPred.class &&
+        this.distanceBetweenBoxes(prev.bbox, newPred.bbox) < this.MAX_BBOX_DISTANCE
+      );
+
+      if (matchedPrev) {
+        const smoothBbox = newPred.bbox.map((coord, i) =>
+          this.SMOOTHING_ALPHA * coord + (1 - this.SMOOTHING_ALPHA) * matchedPrev.bbox[i]
+        ) as [number, number, number, number];
+        const smoothScore = this.SMOOTHING_ALPHA * newPred.score + (1 - this.SMOOTHING_ALPHA) * matchedPrev.score;
+        smoothedPredictions.push({
+          ...newPred,
+          bbox: smoothBbox,
+          score: smoothScore
+        });
+      } else {
+        smoothedPredictions.push(newPred);
+      }
+    }
+    this.previousPredictions = smoothedPredictions;
+    return smoothedPredictions;
+  }
 
 
   ngOnDestroy() {

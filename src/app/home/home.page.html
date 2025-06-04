@@ -1,24 +1,42 @@
 <ion-content fullscreen class="camera-content">
+
+  <!-- Contenedor superior para el botón toggleCamera -->
+  <div class="top-button-overlay" *ngIf="!isCapturedImage && isWebcamActive">
+    <ion-button shape="round" size="large" color="medium" (click)="toggleCamera()">
+      <ion-icon name="camera-reverse-outline"></ion-icon>
+    </ion-button>
+  </div>
+
+  <div class="middle-container" *ngIf="!isWebcamActive && !isCapturedImage">
+    Video is on pause. Upload a picture or resume it. 
+  </div>
+
   <div class="media-container">
-    <video #video autoplay playsinline [style.display]="isWebcamActive ? 'block' : 'none'"></video>
-    <canvas #canvas></canvas>
+    <img *ngIf="isCapturedImage" [src]="capturedImageDataUrl" />
+    <video #video autoplay playsinline [hidden]="!isWebcamActive || isCapturedImage"></video>
+    <canvas #canvas [hidden]="!isWebcamActive || isCapturedImage"></canvas>
   </div>
 
   <div class="button-overlay">
-    <ion-button shape="round" size="large" fill="solid" color="light" (click)="pickImageFromGallery()">
+    <ion-button *ngIf="!isCapturedImage && !isWebcamActive" shape="round" size="large" fill="solid" color="light" (click)="pickImageFromGallery()">
       <ion-icon name="folder-outline"></ion-icon>
     </ion-button>
 
-    <ion-button shape="round" size="large" [color]="isWebcamActive ? 'danger' : 'primary'" (click)="toggleWebcam()">
+    <ion-button *ngIf="!isCapturedImage" shape="round" size="large" 
+      [color]="isWebcamActive ? 'danger' : 'primary'" (click)="toggleWebcam()">
       <ion-icon [name]="isWebcamActive ? 'stop-circle-outline' : 'videocam-outline'"></ion-icon>
     </ion-button>
 
-    <ion-button shape="round" size="large" color="medium" *ngIf="isWebcamActive" (click)="toggleCamera()">
-      <ion-icon name="camera-reverse-outline"></ion-icon>
+    <ion-button *ngIf="!isCapturedImage && isWebcamActive" shape="round" size="large" fill="solid" color="light" (click)="captureImage()">
+      <ion-icon name="camera-outline"></ion-icon>
     </ion-button>
 
-    <ion-button shape="round" size="large" fill="solid" color="light" *ngIf="isWebcamActive" (click)="captureImage()">
-      <ion-icon name="camera-outline"></ion-icon>
+    <ion-button *ngIf="isCapturedImage" shape="round" size="large" fill="solid" color="danger" (click)="discardCapturedImage()">
+      <ion-icon name="close-circle-outline"></ion-icon>
+    </ion-button>
+
+    <ion-button *ngIf="isCapturedImage" shape="round" size="large" fill="solid" color="success" (click)="saveCapturedImage()">
+      <ion-icon name="download-outline"></ion-icon>
     </ion-button>
   </div>
 </ion-content>

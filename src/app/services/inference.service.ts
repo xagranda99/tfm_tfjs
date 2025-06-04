@@ -113,16 +113,14 @@ export class InferenceService {
     if (!ctx) return;
   
     const margin = 5;
-  
     canvas.width = image.width;
     canvas.height = image.height;
   
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(image, 0, 0, image.width, image.height); // Dibujar imagen en canvas
-  
+    ctx.drawImage(image, 0, 0, image.width, image.height);
+
     predictions.forEach(prediction => {
       let [x, y, width, height] = prediction.bbox;
-  
       if (x < margin) {
         width -= (margin - x);
         x = margin;
@@ -146,22 +144,22 @@ export class InferenceService {
       const label = `${prediction.class} (${(prediction.score * 100).toFixed(2)}%)`;
   
       ctx.strokeStyle = '#00ff88';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 4;
       ctx.strokeRect(x, y, width, height);
   
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.font = '35px Arial';
+      ctx.textBaseline = 'top';
       const textWidth = ctx.measureText(label).width;
-      ctx.fillRect(x, y - 20, textWidth + 10, 20);
+      const textHeight = 20;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(x, y - textHeight - 4, textWidth + 12, textHeight + 7);
   
-      ctx.font = '14px Arial';
       ctx.fillStyle = '#00ff88';
-      ctx.fillText(label, x + 5, y - 5);
+      ctx.fillText(label, x + 5, y - textHeight - 15);
     });
   }
   
-  
-  
-
   dispose() {
     tf.engine().startScope();
     tf.engine().endScope();

@@ -57,7 +57,39 @@
 }
 
 .prediction-box {
-  max-width: 90vw; // evita que se desborde del ancho de la pantalla
+  max-width: 90vw; 
   word-break: break-word;
-  white-space: normal; // permite que el texto salte de línea
+  white-space: normal;
+}
+
+.top-button-overlay {
+  position: absolute;
+  top: 2rem;
+  left: 85%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  pointer-events: auto;
+
+  ion-button {
+    --border-radius: 50%;
+    width: 70px;
+    height: 70px;
+    ion-icon {
+      font-size: 32px;
+    }
+  }
+}
+
+.middle-container{
+  width: 100%;
+  height: 100%;
+  color: white;
+  font-size: 1.3rem;
+  align-content: center;
+  place-self: center;
+  text-align: center;
+  padding: 4rem;
 }
